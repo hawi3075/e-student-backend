@@ -1,180 +1,156 @@
-// frontend/app/dashboard/profile/page.tsx
+// frontend/app/dashboard/profile/page.tsx (FINAL FIX)
 
 'use client';
 
-import React, { useState } from 'react';
-import { UserCircleIcon, PencilIcon, AcademicCapIcon, MapPinIcon, PhoneIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { UserCircleIcon, AcademicCapIcon, BriefcaseIcon, CreditCardIcon, ExclamationCircleIcon, UserIcon } from '@heroicons/react/24/outline';
 
-interface StudentData {
-  studentId: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  department: string;
-  program: string;
-  level: string;
-  currentAddress: string;
-}
+// ⚠️ FIX 1: Change to the correct layout for the student dashboard.
+// This assumes you have a component named StudentLayout that wraps the student pages.
+// If you don't have a dedicated StudentLayout, you MUST create one or use the AdminLayout
+// and ensure its content dynamically changes based on the user's role/session.
+import StudentLayout from '../../../components/StudentLayout'; 
 
-// Initial state with empty placeholders
-const initialStudentData: StudentData = {
-  studentId: 'N/A (Admin Input Required)',
-  fullName: 'Student Name (e.g., John Doe)',
-  email: 'Not Set (user@university.edu)',
-  phone: 'Not Set',
-  department: 'Pending',
-  program: 'Pending',
-  level: '1st Year',
-  currentAddress: 'Not Set',
+// ⚠️ FIX 2: Correct the import path for the centralized data structure.
+// /frontend/app/dashboard/profile/ -> /frontend/app/dashboard/ -> /frontend/app/ -> /frontend/ -> /lib/data
+// This requires FOUR dots (../../../../lib/data)
+import { Student } from '../../../../lib/data'; 
+
+const StudentProfileDashboard: React.FC = () => {
+    const searchParams = useSearchParams();
+    const studentId = searchParams.get('id');
+
+    const [studentData, setStudentData] = useState<Student | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStudentData = async () => {
+            if (!studentId) {
+                setLoading(false);
+                return;
+            }
+            try {
+                // Call the API endpoint
+                const response = await fetch(`/api/students/${studentId}`);
+                
+                if (!response.ok) {
+                    // This is why "Profile Not Found" occurred if the API couldn't find the data.
+                    throw new Error('Failed to fetch student data');
+                }
+                
+                const data: Student = await response.json();
+                setStudentData(data);
+            } catch (error) {
+                console.error('API Fetch Error:', error);
+                setStudentData(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStudentData();
+    }, [studentId]);
+
+    const LayoutComponent = StudentLayout; // Use the dedicated student layout
+
+    if (loading) {
+        return (
+            <LayoutComponent>
+                <div className="flex justify-center items-center h-96">
+                    <p className="text-lg text-indigo-600">Loading Student Profile...</p>
+                </div>
+            </LayoutComponent>
+        );
+    }
+    
+    // Renders the "Profile Not Found" message
+    if (!studentData) {
+        return (
+            <LayoutComponent>
+                <div className="flex justify-center items-center h-full p-10">
+                    <div className="text-center p-8 bg-white rounded-xl shadow-lg">
+                        <ExclamationCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                        <h2 className="text-xl font-semibold text-gray-800">Profile Not Found</h2>
+                        <p className="text-gray-600 mt-2">The requested student profile could not be loaded for ID: {studentId}. Ensure the student ID exists in the database.</p>
+                        <a href="/login" className="mt-4 inline-block text-indigo-600 hover:text-indigo-800 font-medium">
+                            Return to Login
+                        </a>
+                    </div>
+                </div>
+            </LayoutComponent>
+        );
+    }
+
+    // Renders the Student Data
+    return (
+        <LayoutComponent>
+            <div className="max-w-7xl mx-auto p-8 py-12">
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                        <UserCircleIcon className="h-8 w-8 mr-3 text-indigo-600" />
+                        Student Profile Dashboard
+                    </h1>
+                    <p className="text-gray-600 mt-1">Personal and Registration Information.</p>
+                </header>
+                
+                <div className="bg-white p-8 rounded-xl shadow-2xl">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                        <UserIcon className="h-6 w-6 mr-3 text-gray-500" />
+                        Personal Details
+                    </h2>
+                    
+                    <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 text-lg">
+                        
+                        {/* 1. Student ID */}
+                        <div>
+                            <dt className="text-sm font-medium text-gray-500 flex items-center">
+                                <CreditCardIcon className="w-4 h-4 mr-2 text-indigo-500"/>
+                                Student ID
+                            </dt>
+                            <dd className="mt-1 font-semibold text-gray-900">{studentData.id}</dd>
+                        </div>
+                        
+                        {/* 2. Full Name */}
+                        <div>
+                            <dt className="text-sm font-medium text-gray-500 flex items-center">
+                                <UserIcon className="w-4 h-4 mr-2 text-indigo-500"/>
+                                Full Name
+                            </dt>
+                            <dd className="mt-1 font-semibold text-gray-900">{studentData.name}</dd>
+                        </div>
+
+                        {/* 3. Department */}
+                        <div>
+                            <dt className="text-sm font-medium text-gray-500 flex items-center">
+                                <AcademicCapIcon className="w-4 h-4 mr-2 text-indigo-500"/>
+                                Department
+                            </dt>
+                            <dd className="mt-1 font-semibold text-gray-900">{studentData.department}</dd>
+                        </div>
+                        
+                        {/* 4. Registration Status */}
+                        <div>
+                            <dt className="text-sm font-medium text-gray-500 flex items-center">
+                                <BriefcaseIcon className="w-4 h-4 mr-2 text-indigo-500"/>
+                                Registration Status
+                            </dt>
+                            <dd className={`mt-1 font-semibold ${studentData.status === 'Registered' ? 'text-green-600' : 'text-yellow-600'}`}>
+                                {studentData.status}
+                            </dd>
+                        </div>
+
+                        {/* Additional Data (Credits) */}
+                        <div className="md:col-span-2">
+                            <dt className="text-sm font-medium text-gray-500">Credits Enrolled</dt>
+                            <dd className="mt-1 font-semibold text-gray-900">{studentData.credits}</dd>
+                        </div>
+
+                    </dl>
+                </div>
+            </div>
+        </LayoutComponent>
+    );
 };
 
-const StudentProfilePage: React.FC = () => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState<StudentData>(initialStudentData);
-
-  // Function to handle saving/updating profile data
-  const handleSave = () => {
-    // In a real application, you would send profileData to an API endpoint here.
-    console.log('Saving profile data:', profileData);
-    alert('Profile Updated Successfully!');
-    setIsEditing(false); // Exit edit mode after saving
-  };
-
-  // Function to handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setProfileData(prevData => ({
-      ...prevData,
-      [name]: value,
-    }));
-  };
-  
-  // --- Data Display Utility ---
-
-  const ProfileField: React.FC<{ label: string; value: string; icon: React.ReactNode; name: keyof StudentData }> = ({ label, value, icon, name }) => (
-    <div className="flex items-center space-x-4 p-4 border-b border-gray-100 hover:bg-gray-50 transition duration-100">
-      <div className="text-blue-500 flex-shrink-0">{icon}</div>
-      <div className="flex-grow">
-        <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
-        
-        {isEditing ? (
-          <input
-            type={name.includes('email') ? 'email' : name.includes('phone') ? 'tel' : 'text'}
-            name={name}
-            value={value}
-            onChange={handleChange}
-            className="w-full mt-1 border border-gray-300 rounded-md px-2 py-1 text-gray-800 focus:ring-blue-500 focus:border-blue-500"
-            placeholder={`Enter ${label}`}
-          />
-        ) : (
-          <p className="text-base font-semibold text-gray-800">{value}</p>
-        )}
-      </div>
-    </div>
-  );
-
-  // --- Main Render ---
-
-  return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      
-      {/* Page Header and Edit Button */}
-      <div className="flex justify-between items-center pb-4 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <UserCircleIcon className="h-10 w-10 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Student Profile</h1>
-        </div>
-        
-        {/* Edit Button */}
-        <button
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition duration-150 ${
-            isEditing
-              ? 'bg-green-600 text-white hover:bg-green-700'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-        >
-          <PencilIcon className="h-5 w-5" />
-          <span>{isEditing ? 'Save Changes' : 'Edit Profile'}</span>
-        </button>
-      </div>
-
-      {/* Profile Card */}
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-        
-        {/* Basic Info Header */}
-        <div className="p-6 bg-blue-50 flex items-center space-x-6">
-          <div className="h-20 w-20 rounded-full bg-blue-200 flex items-center justify-center text-blue-700">
-            <UserCircleIcon className="h-16 w-16" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">{profileData.fullName}</h2>
-            <p className="text-sm text-gray-600">ID: {profileData.studentId}</p>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-4">
-          
-          <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Contact & Academic Details</h3>
-          
-          {/* Contact Information */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ProfileField 
-              label="Email Address" 
-              value={profileData.email} 
-              name="email"
-              icon={<EnvelopeIcon className="h-5 w-5" />} 
-            />
-            <ProfileField 
-              label="Phone Number" 
-              value={profileData.phone} 
-              name="phone"
-              icon={<PhoneIcon className="h-5 w-5" />} 
-            />
-          </div>
-
-          {/* Academic Information */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ProfileField 
-              label="Department" 
-              value={profileData.department} 
-              name="department"
-              icon={<AcademicCapIcon className="h-5 w-5" />} 
-            />
-            <ProfileField 
-              label="Program/Major" 
-              value={profileData.program} 
-              name="program"
-              icon={<AcademicCapIcon className="h-5 w-5" />} 
-            />
-            <ProfileField 
-              label="Academic Level" 
-              value={profileData.level} 
-              name="level"
-              icon={<AcademicCapIcon className="h-5 w-5" />} 
-            />
-            <ProfileField 
-              label="Current Address" 
-              value={profileData.currentAddress} 
-              name="currentAddress"
-              icon={<MapPinIcon className="h-5 w-5" />} 
-            />
-          </div>
-          
-        </div>
-      </div>
-      
-      {/* Note for Admin */}
-      <div className="text-center text-sm text-gray-500 pt-4">
-        <p>Note: Core details like Student ID and Academic Program are managed by the administrator.</p>
-      </div>
-
-      {/* --- New Copyright Footer (Updated Text) --- */}
-      <footer className="w-full py-4 text-center text-xs text-gray-500 bg-gray-100 border-t border-gray-200">
-          <p>&copy; 2025 Student Portal. **Access is Restricted.**</p>
-      </footer>
-    </div>
-  );
-};
-
-export default StudentProfilePage;
+export default StudentProfileDashboard;

@@ -3,193 +3,186 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image'; 
-import { useRouter } from 'next/navigation'; // <-- 1. Import useRouter
-import { ArrowRightIcon, AcademicCapIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'; 
+import { useRouter } from 'next/navigation';
+import { UserIcon, LockClosedIcon, BriefcaseIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
+
+// FIX: Correctly import Navbar. We removed the incorrect AdminLayout import.
+import Navbar from '../../components/Navbar'; 
+
+// Import necessary functions and data structures from the centralized data file
+// New (CORRECT) line for login/page.tsx:
+import { getAdminCredentials, getStudents, Student } from '../../../lib/data';
+
+// Define the allowed roles
+type Role = 'student' | 'admin';
+
+// --- MOCK CREDENTIAL DATA (Fetched from lib/data.ts) ---
+const mockAdminCredentials = getAdminCredentials();
+const mockStudentCredentials = getStudents();
+// ----------------------------
+
 
 const LoginPage: React.FC = () => {
-  const router = useRouter(); // <-- 2. Initialize router
-  const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const currentYear = new Date().getFullYear();
-
-  // --- Utility Functions ---
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+    const router = useRouter(); 
     
-    // In a real application, you would send credentials to an API here.
+    // State variables
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [role, setRole] = useState<Role>('student'); // Default role selection
+    const [error, setError] = useState('');
     
-    if (activeTab === 'student') {
-        // 3. STUDENT SUCCESS: Redirect to the Upcoming Events page
-        alert('Student Login Successful! Redirecting...');
-        router.push('/dashboard/events'); 
+    // --- Authentication Function ---
+    const authenticateUser = (user: string, pass: string, userRole: Role): { success: boolean, redirectId?: string, actualRole: Role } => {
         
-    } else if (activeTab === 'admin') {
-        // ADMIN SUCCESS: Redirect to the Admin Dashboard (or a different page)
-        alert('Admin Login Successful! Redirecting to Admin Dashboard...');
-        router.push('/admin/dashboard'); // Assuming you'll create an admin dashboard route later
-    }
-  };
+        // 1. Check for HARDCODED ADMIN credentials (Highest priority)
+        const isAdminLogin = user === mockAdminCredentials.username && pass === mockAdminCredentials.password;
+        if (isAdminLogin) {
+            return { success: true, actualRole: 'admin' };
+        }
 
-  const handleLogout = () => {
-    // This is just for display on the login page navigation. 
-    alert('Simulated Logout action. You are on the login page.');
-  };
+        // 2. Check Student Credentials (ID/Password)
+        const student = mockStudentCredentials.find(s => s.id === user);
+        const isStudentLogin = !!student && student.password === pass;
 
-  // --- Main Render ---
+        if (isStudentLogin) {
+            // If the user is a student, we check the selected role:
+            if (userRole === 'admin') {
+                // Scenario: Admin wants to view a student's data using the student's credentials.
+                return { success: true, redirectId: user, actualRole: 'student' };
+            } else if (userRole === 'student') {
+                // Scenario: Standard student login.
+                 return { success: true, redirectId: user, actualRole: 'student' };
+            }
+        }
+        
+        // 3. Login Failed
+        return { success: false, actualRole: userRole };
+    };
+    // ------------------------------------
 
-  const primaryLabel = activeTab === 'student' ? 'Student ID / Email' : 'Staff ID / Email';
-  const loginButtonText = activeTab === 'student' ? 'Student Login' : 'Admin Login';
-  const emailPlaceholder = activeTab === 'student' ? 'Enter Student ID or Email' : 'Enter Staff ID or Email';
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
 
-  return (
-    <div className="bg-gray-100 flex flex-col min-h-screen">
-      
-      {/* --- Enhanced Navigation Bar / Header (FIXED/STICKY) --- */}
-      <nav className="w-full bg-blue-100 shadow-md sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20"> 
+        const result = authenticateUser(username, password, role);
+
+        if (result.success) {
+            if (result.actualRole === 'admin') {
+                // Redirect to the Admin Hub
+                router.push('/admin/hub'); 
+            } else {
+                // Redirect to the Student Dashboard/Profile, using the user ID
+                router.push(`/dashboard/profile?id=${result.redirectId || username}`); 
+            }
+        } else {
+            // Determine the appropriate error hint based on the selected role
+            let hint = '';
+            if (role === 'admin') {
+                hint = `Try admin login: ${mockAdminCredentials.username} / ${mockAdminCredentials.password}. Or, try a student ID and password to access their data.`;
+            } else {
+                // Use a valid student ID for the hint
+                hint = `Try Student ID: ${mockStudentCredentials[0].id} / ${mockStudentCredentials[0].password}`;
+            }
+                
+            setError(`Invalid username or password for ${role} role. ${hint}`);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col bg-gray-100">
             
-            {/* Left Side: Logo and Portal Name */}
-            <div className="flex-shrink-0 flex items-center space-x-3">
-              <div className="relative h-10 w-10">
-                <Image
-                  src="/hs-logo.png"
-                  alt="Student Portal Logo"
-                  fill
-                  style={{ objectFit: 'contain' }}
-                  priority
-                />
-              </div>
-              <span className="text-2xl font-bold text-gray-800">Student Portal</span>
+            <Navbar />
+
+            <div className="flex justify-center items-center flex-grow py-12"> 
+                <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl border-t-4 border-indigo-600">
+                    <h2 className="text-3xl font-bold text-center text-gray-900">Portal Login</h2>
+                    <p className="text-center text-gray-500">Sign in to access your dashboard.</p>
+
+                    {error && <p className="p-3 bg-red-100 text-red-700 text-sm rounded-lg text-center">{error}</p>}
+                    
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        
+                        {/* Role Selector */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Login Role</label>
+                            <div className="flex space-x-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setRole('student')}
+                                    className={`flex items-center justify-center flex-1 p-3 border rounded-lg transition-all ${
+                                        role === 'student' ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-inner' : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <AcademicCapIcon className="h-5 w-5 mr-2" /> **Student**
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRole('admin')}
+                                    className={`flex items-center justify-center flex-1 p-3 border rounded-lg transition-all ${
+                                        role === 'admin' ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-inner' : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <BriefcaseIcon className="h-5 w-5 mr-2" /> **Administrator**
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Username Input */}
+                        <div>
+                            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                                {role === 'student' ? 'Student ID' : 'Username/ID'}
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <UserIcon className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    id="username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" 
+                                    placeholder={`Enter ${role === 'student' ? 'Student ID (e.g., 1001)' : 'username (admin)'}`}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Password Input */}
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                    type="password"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        
+                        <button
+                            type="submit"
+                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150"
+                        >
+                            Sign In as {role === 'admin' ? 'Admin' : 'Student'}
+                        </button>
+                    </form>
+                </div>
             </div>
-            
-            {/* Right Side: Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-blue-200 transition duration-150"
-            >
-              <ArrowRightOnRectangleIcon className="h-6 w-6" /> 
-              <span className="font-medium hidden sm:inline">Logout</span>
-            </button>
-          </div>
+
+            <footer className="text-center p-3 text-sm text-gray-500 border-t border-gray-200">
+                &copy; {new Date().getFullYear()} University Portal. All rights reserved. 
+            </footer>
+
         </div>
-      </nav>
-
-      {/* --- Login Form Centered Content --- */}
-      <div className="flex items-center justify-center flex-grow p-4">
-        <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl space-y-6">
-          
-          {/* Welcome Message */}
-          <div className="text-center space-y-3">
-            <AcademicCapIcon className="h-10 w-10 text-blue-600 mx-auto" />
-            <h2 className="text-3xl font-bold text-gray-900">Welcome Back!</h2>
-            <p className="text-gray-500">Login to access your dashboard.</p>
-          </div>
-
-          {/* Tab Selector */}
-          <div className="flex border-b border-gray-200 mb-6">
-            <button
-              onClick={() => setActiveTab('student')}
-              className={`flex-1 py-3 text-lg font-semibold border-b-2 transition duration-200 ${
-                activeTab === 'student'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex-1 py-3 text-lg font-semibold border-b-2 transition duration-200 ${
-                activeTab === 'admin'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Admin / Staff
-            </button>
-          </div>
-
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-6">
-            
-            {/* Email / ID Input */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                {primaryLabel}
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={emailPlaceholder}
-                className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            {/* Password Input */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1 relative">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter Password" 
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                Forgot Password?
-              </a>
-              {activeTab === 'student' && (
-                  <a href="#" className="font-medium text-gray-600 hover:text-gray-500">
-                      Sign Up
-                  </a>
-              )}
-            </div>
-
-            {/* Login Button */}
-            <button
-              type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
-            >
-              {loginButtonText}
-              <ArrowRightIcon className="h-5 w-5 ml-2" />
-            </button>
-          </form>
-
-          {/* Admin Specific Notes (Optional) */}
-          {activeTab === 'admin' && (
-              <p className="text-center text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
-                  Admin login is restricted to university faculty and staff only.
-              </p>
-          )}
-        </div>
-      </div>
-
-      {/* --- Copyright Footer --- */}
-      <footer className="w-full py-4 text-center text-xs text-gray-500 bg-blue-50 border-t border-gray-200">
-          <p>&copy; {currentYear} Student Portal. All rights reserved.</p>
-      </footer>
-    </div>
-  );
+    );
 };
 
 export default LoginPage;
