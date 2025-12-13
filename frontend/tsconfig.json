@@ -1,37 +1,57 @@
-// E:/student/frontend/tsconfig.json
 {
   "compilerOptions": {
+    // Basic Language Options
     "target": "ES2017",
     "lib": [
       "dom",
       "dom.iterable",
       "esnext"
     ],
-    // ... (other options remain the same) ...
-    // 💡 FIX: ADD THIS BASE URL LINE
+    
+    // Module Resolution Options
+    "module": "esnext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    // Project and Path Configuration (Crucial for Monorepo)
     "baseUrl": ".",
+    "paths": {
+      // 1. Standard Next.js alias for files inside frontend/
+      "@/*": [
+        "./*"
+      ],
+      
+      // 2. MONOREPO FIX: Alias to access the shared backend directory
+      //    (Path is relative: one level up from frontend/ into backend/)
+      "@/backend/*": [
+        "../backend/*" 
+      ],
+      
+      // 3. Optional: Alias for direct Prisma folder access (if needed)
+      "@/prisma/*": [
+        "../backend/prisma/*"
+      ]
+    },
+
+    // Next.js and React/JSX Options
+    "jsx": "react-jsx",
     "plugins": [
       {
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": [
-        "./*"
-      ] // This correctly maps @/ to the frontend folder
-    },
+
+    // Type Checking and Utility Options
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
     "noEmit": true,
-    "incremental": true,
-    "module": "esnext",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx"
+    "incremental": true
   },
+  
+  // Files to Include in the Project
   "include": [
     "next-env.d.ts",
     ".next/types/**/*.ts",
@@ -40,8 +60,9 @@
     "**/*.ts",
     "**/*.tsx"
   ],
+  
+  // Files to Exclude from the Project
   "exclude": [
     "node_modules"
   ]
-  // ... (include and exclude remain the same) ...
 }

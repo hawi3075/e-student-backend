@@ -1,35 +1,65 @@
+// backend/prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // HARDCODED URL: Used to bypass environment variable loading issues with Prisma 5.17.0
+  url      = "postgresql://postgres:hawisam7339@localhost:5432/e_student_portal?schema=public" 
 }
 
+// ----------------------------------------------------
+// ENUMS
+// ----------------------------------------------------
+
+// 1. Role Enum: Distinguishes between user types
 enum Role {
   ADMIN
   STUDENT
 }
 
+// 2. Student Status Enum: Matches the frontend component logic
+enum StudentStatus {
+  Registered
+  Pending
+  OnHold
+}
+
+// ----------------------------------------------------
+// MODELS
+// ----------------------------------------------------
+
+// Model for all users (Admin and Students)
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
-  role     Role   @default(STUDENT)
+  // Use String ID to match your application's '1001', '1002' requirement.
+  id            String    @id @unique
+  
+  // Basic User/Student Information
+  name          String
+  email         String    @unique // Kept for strong unique identifier
+  password      String    
+  role          Role      @default(STUDENT)
+  
+  // Student-Specific Data (Conditional on role = STUDENT)
+  department    String?   // Changed from courseId/course to department
+  credits       Int?      @default(0)
+  status        StudentStatus?
+  
+  // Relationships
+  courseId      Int?
+  course        Course?   @relation(fields: [courseId], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt // <--- THE FIX for the migration error
 }
 
-model Student {
-  id        Int    @id @default(autoincrement())
-  name      String
-  email     String @unique
-  courseId  Int
-  course    Course @relation(fields: [courseId], references: [id])
-}
-
+// Course Model: Remains mostly the same, linking to the User model (as the student)
 model Course {
-  id       Int       @id @default(autoincrement())
-  name     String
-  students Student[]
+  id            Int         @id @default(autoincrement())
+  name          String      @unique
+  
+  // Relationship: Courses can be linked to many students (User model)
+  students      User[]
 }
